@@ -1,0 +1,127 @@
+# To-Do-List Project using Python/SQLalchemy
+from sqlalchemy import create_engine  # for creating db file
+from sqlalchemy.ext.declarative import declarative_base  # for Table class
+from sqlalchemy import Column, Integer, String, Date  # for Table class
+from sqlalchemy.orm import sessionmaker  # for starting session
+from datetime import datetime, timedelta  # for time management
+
+
+# creating database
+# crating the file
+engine = create_engine('sqlite:///todo.db?check_same_thread=False')
+# create a model class that describes the Table in database
+Base = declarative_base()
+
+
+class Table(Base):
+    __tablename__ = 'task'
+    id = Column(Integer, primary_key=True)
+    task = Column(String, default='default_value')
+    deadline = Column(Date, default=datetime.today())
+
+    def __repr__(self):
+        return self.task
+
+
+# create Table in database file
+Base.metadata.create_all(engine)
+# access to database
+Session = sessionmaker(bind=engine)
+session = Session()
+
+
+def some_tasks(num_deadline_date):
+    deadline_limit = datetime.today().date() + timedelta(days=num_deadline_date)
+    return session.query(Table).filter(Table.deadline < deadline_limit).all()
+
+
+def day_tasks(day):
+    return session.query(Table).filter(Table.deadline == day).all()
+
+
+def all_tasks():
+    return session.query(Table).all()
+
+
+def delete_task(this_task):
+    session.query(Table).filter(Table.task == this_task).delete()
+    session.commit()
+    return True
+
+
+def add_task(new_task_input, deadline):
+    new_task = Table(task=new_task_input,
+                     deadline=datetime(int(deadline[0]), int(deadline[1]), int(deadline[2])))
+    session.add(new_task)
+    session.commit()
+    return True
+
+
+menu = "1) Today's tasks\n2) Week's tasks\n3) All tasks\n4) Missed tasks\n" \
+       "5) Add task\n6) Delete task\n0) Exit\n"
+num_days = {0: 'Monday', 1: 'Tuesday', 2: 'Wednesday', 3: 'Thursday',
+            4: 'Friday', 5: 'Saturday', 6: 'Sunday'}
+
+while True:
+    u_i = input(menu)
+    if u_i in ['1', '2', '3', '4']:
+        if u_i == '1' and len(day_tasks(datetime.today().date())) > 0:
+            the_day = datetime.today().date()
+            tasks = day_tasks(the_day)
+            print('\n', num_days[the_day.weekday()], ' ', the_day.strftime('%d %b'), ':', sep='')
+            for task in tasks:
+                print('{}. {}'.format(task.id, task.task))
+        elif u_i == '2':
+            for i in range(0, 7):
+                the_day = datetime.today().date() + timedelta(days=i)
+                tasks = day_tasks(the_day)
+                if len(tasks) > 0:
+                    print('\n', num_days[the_day.weekday()], ' ', the_day.strftime('%d %b'), ':', sep='')
+                    for task in tasks:
+                        print('{}. {}'.format(task.id, task.task))
+                else:
+                    print('\n', num_days[the_day.weekday()], ' ', the_day.strftime('%d %b'), ':', sep='')
+                    print('Nothing to do!')
+        elif u_i == '3' and len(all_tasks()) > 0:
+            tasks = all_tasks()
+            print('All tasks:')
+            for task in tasks:
+                print('{}. {}. {}'
+                      .format(task.id, task.task, task.deadline.strftime('%d %b')))
+        elif u_i == '4':
+            print('Missed tasks:')
+            tasks = some_tasks(0)
+            if len(tasks) > 0:
+                for task in tasks:
+                    print('{}. {}. {}'
+                          .format(task.id, task.task, task.deadline.strftime('%d %b')))
+            else:
+                print('Nothing is missed!')
+        else:
+            the_day = datetime.today().date()
+            print('\n', num_days[the_day.weekday()], ' ', the_day.strftime('%d %b'), ':', sep='')
+            print('Nothing to do!')
+        print()
+    elif u_i == '5':
+        t_i = input('\nEnter activity\n')
+        d_i = input('\nEnter deadline\n').split('-')
+        if add_task(t_i, d_i):
+            print('The task has been added!\n')
+    elif u_i == '6':
+        if len(all_tasks()) > 0:
+            print('Chose the number of the task you want to delete:')
+            tasks = all_tasks()
+            for task in tasks:
+                print('{}. {}. {}'
+                      .format(task.id, task.task, task.deadline.strftime('%d %b')))
+            t_t_d = int(input())
+            for task in tasks:
+                if task.id == t_t_d:
+                    if delete_task(task.task):
+                        print('The task has been deleted!')
+        else:
+            print('\nNothing to do!\n')
+
+    elif u_i == '0':
+        print('\nBye!')
+        break
